@@ -6,7 +6,7 @@
 # 应用程序信息
 APP_NAME = "TextPolish"
 APP_VERSION = "2.0.0"
-APP_TITLE = "TextPolish - Gemini文本格式修复工具"
+APP_TITLE = "Gemini文本格式修复工具"
 APP_ORGANIZATION = "TextPolish"
 
 # 窗口配置
