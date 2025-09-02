@@ -18,6 +18,7 @@ def main():
     
     project_root = Path.cwd()
     main_py = project_root / "main.py"
+    icon_file = project_root / "icon.ico"
     
     # 检查入口文件
     if not main_py.exists():
@@ -25,6 +26,12 @@ def main():
         return False
     
     print(f"✅ 找到入口文件: {main_py}")
+    
+    # 检查图标文件
+    if icon_file.exists():
+        print(f"✅ 找到图标文件: {icon_file}")
+    else:
+        print(f"⚠️  未找到图标文件: {icon_file}")
     print()
     
     # 清理旧的构建文件
@@ -54,8 +61,13 @@ def main():
             "--name=TextPolish",   # 指定输出文件名
             "--clean",             # 清理缓存
             "--noconfirm",         # 不询问确认
-            str(main_py)
         ]
+        
+        # 如果存在图标文件，添加图标参数
+        if icon_file.exists():
+            cmd.append(f"--icon={icon_file}")
+            
+        cmd.append(str(main_py))
         
         print(f"执行命令: {' '.join(cmd[:4])} ... {cmd[-1]}")
         print()

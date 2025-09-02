@@ -8,13 +8,13 @@ import sys
 import re
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QSplitter
 from PyQt6.QtCore import Qt, pyqtSignal, QMimeData
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QIcon
 from qfluentwidgets import (
     FluentWindow, NavigationItemPosition, SubtitleLabel, BodyLabel,
     PlainTextEdit, PrimaryPushButton, PushButton, TransparentPushButton,
     InfoBar, InfoBarPosition, Theme, setTheme, CardWidget, setFont,
     FluentIcon as FIF, MessageBox, Action, RoundMenu, TransparentToolButton,
-    isDarkTheme, qconfig, TogglePushButton, CheckBox
+    isDarkTheme, qconfig, TogglePushButton, CheckBox, TextBrowser
 )
 import pyperclip
 from bs4 import BeautifulSoup
@@ -29,6 +29,7 @@ class TextPolishInterface(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("TextPolishInterface")
+        self.processed_text = ""  # 初始化处理后的文本
         self.initUI()
     
     def initUI(self):
@@ -118,17 +119,24 @@ class TextPolishInterface(QWidget):
         layout.setSpacing(5)
         
         # 简化标题
-        title = BodyLabel("处理结果")
+        title = BodyLabel("格式预览")
         setFont(title, 10)
         layout.addWidget(title)
         
-        # 输出文本框 - 占满剩余空间
-        self.output_text = PlainTextEdit()
-        self.output_text.setReadOnly(True)
-        self.output_text.setPlaceholderText("处理后的文本将显示在这里...")
-        layout.addWidget(self.output_text, 1)  # 设置拉伸因子为1，占满剩余空间
+        # 使用QFluentWidgets的TextBrowser组件
+        self.html_preview = TextBrowser()
+        self.html_preview.setMarkdown("## 📄 格式预览\n\n处理后的格式化文本将在这里预览...\n\n*支持标题层级、字体样式、段落格式等*")
+        
+        # 设置常用字体进行测试
+        font = QFont("Microsoft YaHei", 14)  # 使用微软雅黑
+        self.html_preview.setFont(font)
+        
+        layout.addWidget(self.html_preview, 1)  # 设置拉伸因子为1，占满剩余空间
         
         return card
+    
+
+
     
     def create_button_widget(self):
         """创建按钮区域"""
@@ -358,13 +366,105 @@ class TextPolishInterface(QWidget):
                     # 普通正文 (西文：Times New Roman，中文：方正仿宋_GBK，三号字，首行缩进2字符)
                     html_lines.append(f'<p class="MsoNormal"><span style="mso-spacerun:\'yes\';font-family:\'Times New Roman\';mso-ascii-font-family:\'Times New Roman\';mso-hansi-font-family:\'Times New Roman\';mso-bidi-font-family:\'Times New Roman\';mso-fareast-font-family:方正仿宋_GBK;font-size:16.0000pt;mso-font-kerning:1.0000pt;">{line}</span></p>')
         
-        # 生成完整的HTML文档
-        html_content = self.generate_complete_html('\n'.join(html_lines))
-        return html_content
+        # 只返回body内容，让调用者决定如何生成完整HTML
+        return '\n'.join(html_lines)
     
-    def generate_complete_html(self, body_content):
+    def generate_preview_html(self, body_content):
         """
-        生成完整的HTML文档结构，模仿WPS/Word的HTML格式
+        生成用于预览的HTML（带主题颜色）
+        """
+        # 检测当前主题模式
+        is_dark = isDarkTheme()
+        
+        # 根据主题设置颜色
+        if is_dark:
+            body_color = "#ffffff"
+            h1_color = "#74b9ff"
+            h2_color = "#a29bfe"
+            h3_color = "#fd79a8"
+            special_color = "#ff7675"
+            normal_color = "#ddd"
+        else:
+            body_color = "#333333"
+            h1_color = "#2c3e50"
+            h2_color = "#34495e"
+            h3_color = "#2980b9"
+            special_color = "#e74c3c"
+            normal_color = "#333"
+        
+        html_template = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>格式预览</title>
+<style>
+/* 简化样式，确保TextBrowser兼容性，支持暗色模式 */
+body {{
+    font-family: "Microsoft YaHei", "SimSun", serif;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 15px;
+    color: {body_color};
+}}
+
+/* 一级标题 */
+h1 {{
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+    margin: 10px 0;
+    color: {h1_color};
+}}
+
+/* 二级标题 */
+h2 {{
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    margin: 8px 0;
+    color: {h2_color};
+}}
+
+/* 三级标题 */
+h3 {{
+    font-size: 14px;
+    font-weight: bold;
+    text-align: left;
+    margin: 6px 0;
+    color: {h3_color};
+}}
+
+/* 正文段落 */
+p.MsoNormal {{
+    margin: 5px 0;
+    text-indent: 2em;
+    text-align: justify;
+    font-size: 14px;
+    color: {normal_color};
+}}
+
+/* 特殊格式段落中的加粗部分 */
+.special-bold {{
+    font-weight: bold;
+    color: {special_color};
+}}
+
+/* 普通段落中的文本 */
+.normal-text {{
+    font-weight: normal;
+    color: {normal_color};
+}}
+</style>
+</head>
+<body>
+{body_content}
+</body>
+</html>"""
+        return html_template
+
+    def generate_wps_html(self, body_content):
+        """
+        生成用于复制到WPS的HTML（严格按照要求.md）
         """
         html_template = """<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
@@ -459,13 +559,6 @@ h3 {{
     mso-font-kerning: 1.0000pt;
 }}
 
-.bold {{
-    font-family: 'Times New Roman';
-    mso-fareast-font-family: 楷体;
-    font-weight: bold;
-    font-size: 16.0000pt;
-}}
-
 @page {{
     mso-page-border-surround-header: no;
     mso-page-border-surround-footer: no;
@@ -487,6 +580,7 @@ div.Section0 {{
 </html>"""
         return html_template.format(body_content=body_content)
     
+
     def write_to_clipboard(self, html_content):
         """
         将HTML字符串和其对应的纯文本版本放入剪贴板
@@ -528,8 +622,13 @@ div.Section0 {{
             # 处理文本
             cleaned_text = self.clean_text(input_content)
             
-            # 显示结果
-            self.output_text.setPlainText(cleaned_text)
+            # 生成HTML并显示预览
+            body_content = self.convert_to_html(cleaned_text, True, True, True)
+            preview_html = self.generate_preview_html(body_content)
+            self.html_preview.setHtml(preview_html)
+            
+            # 保存处理后的纯文本，供复制功能使用
+            self.processed_text = cleaned_text
             
             # 显示成功气泡
             InfoBar.success(
@@ -559,7 +658,8 @@ div.Section0 {{
     def clear_all(self):
         """清空所有文本"""
         self.input_text.clear()
-        self.output_text.clear()
+        self.html_preview.setMarkdown("## 📄 格式预览\n\n处理后的格式化文本将在这里预览...\n\n*支持标题层级、字体样式、段落格式等*")
+        self.processed_text = ""
         InfoBar.info(
             title="已清空",
             content="所有文本内容已清空",
@@ -574,7 +674,7 @@ div.Section0 {{
     def copy_result(self):
         """复制处理结果到剪贴板"""
         try:
-            result_text = self.output_text.toPlainText().strip()
+            result_text = getattr(self, 'processed_text', '').strip()
             if not result_text:
                 InfoBar.warning(
                     title="提示",
@@ -612,7 +712,7 @@ div.Section0 {{
     def copy_formatted_result(self):
         """带格式复制处理结果到剪贴板"""
         try:
-            result_text = self.output_text.toPlainText().strip()
+            result_text = getattr(self, 'processed_text', '').strip()
             if not result_text:
                 InfoBar.warning(
                     title="提示",
@@ -630,8 +730,9 @@ div.Section0 {{
             enable_h2 = self.h2_checkbox.isChecked()
             enable_h3 = self.h3_checkbox.isChecked()
             
-            # 转换为HTML格式
-            html_content = self.convert_to_html(result_text, enable_h1, enable_h2, enable_h3)
+            # 转换为WPS格式HTML
+            body_content = self.convert_to_html(result_text, enable_h1, enable_h2, enable_h3)
+            html_content = self.generate_wps_html(body_content)
             
             # 复制到剪贴板（同时包含HTML和纯文本格式）
             self.write_to_clipboard(html_content)
@@ -648,7 +749,7 @@ div.Section0 {{
             levels_text = "、".join(selected_levels) if selected_levels else "无格式"
             
             InfoBar.success(
-                title="格式化复制成功",
+                title="复制成功",
                 content=f"已应用{levels_text}格式，可直接粘贴到WPS/Word等软件",
                 orient=Qt.Orientation.Horizontal,
                 isClosable=True,
@@ -667,6 +768,20 @@ div.Section0 {{
                 duration=1000,
                 parent=self
             )
+    
+    def update_preview_theme(self):
+        """主题切换时更新预览"""
+        # 如果已经有处理后的文本，重新生成HTML预览
+        if hasattr(self, 'processed_text') and self.processed_text:
+            # 获取当前的格式设置
+            enable_h1 = self.h1_checkbox.isChecked()
+            enable_h2 = self.h2_checkbox.isChecked()
+            enable_h3 = self.h3_checkbox.isChecked()
+            
+            # 重新生成预览HTML
+            body_content = self.convert_to_html(self.processed_text, enable_h1, enable_h2, enable_h3)
+            preview_html = self.generate_preview_html(body_content)
+            self.html_preview.setHtml(preview_html)
 
 
 class TextPolishWindow(FluentWindow):
@@ -693,6 +808,27 @@ class TextPolishWindow(FluentWindow):
         self.setWindowTitle("TextPolish - Gemini文本格式修复工具")
         self.resize(1200, 700)  # 增加窗口大小以适应新布局
         
+        # 设置窗口图标
+        try:
+            # 尝试使用ico文件（打包后）
+            if hasattr(sys, '_MEIPASS'):
+                icon_path = sys._MEIPASS + '/icon.ico'
+            else:
+                icon_path = 'icon.ico'
+            
+            # 如果ico文件不存在，尝试png文件
+            import os
+            if not os.path.exists(icon_path):
+                if hasattr(sys, '_MEIPASS'):
+                    icon_path = sys._MEIPASS + '/icon.png'
+                else:
+                    icon_path = 'icon.png'
+            
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+        except Exception as e:
+            print(f"设置窗口图标失败: {e}")
+        
         # 居中显示
         screen = QApplication.primaryScreen().availableGeometry()
         w, h = screen.width(), screen.height()
@@ -704,6 +840,9 @@ class TextPolishWindow(FluentWindow):
         # 连接界面的状态更新信号到窗口标题
         self.homeInterface.status_updated.connect(self.update_status)
         
+        # 监听主题切换事件
+        qconfig.themeChanged.connect(self.on_theme_changed)
+        
         # 初始状态
         self.base_title = "TextPolish - Gemini文本格式修复工具"
         
@@ -714,6 +853,11 @@ class TextPolishWindow(FluentWindow):
             self.setWindowTitle(f"{self.base_title} - {message}")
         else:
             self.setWindowTitle(self.base_title)
+    
+    def on_theme_changed(self, theme):
+        """主题切换时的处理"""
+        # 通知界面更新预览
+        self.homeInterface.update_preview_theme()
 
 
 def main():
@@ -724,8 +868,29 @@ def main():
         
         # 设置应用信息
         app.setApplicationName("TextPolish")
-        app.setApplicationVersion("1.0")
+        app.setApplicationVersion("2.0.0")
         app.setOrganizationName("TextPolish")
+        
+        # 设置应用程序图标
+        try:
+            import os
+            # 尝试使用ico文件（打包后）
+            if hasattr(sys, '_MEIPASS'):
+                icon_path = sys._MEIPASS + '/icon.ico'
+            else:
+                icon_path = 'icon.ico'
+            
+            # 如果ico文件不存在，尝试png文件
+            if not os.path.exists(icon_path):
+                if hasattr(sys, '_MEIPASS'):
+                    icon_path = sys._MEIPASS + '/icon.png'
+                else:
+                    icon_path = 'icon.png'
+            
+            if os.path.exists(icon_path):
+                app.setWindowIcon(QIcon(icon_path))
+        except Exception as e:
+            print(f"设置应用程序图标失败: {e}")
         
         # 设置主题
         setTheme(Theme.AUTO)

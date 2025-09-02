@@ -6,8 +6,9 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "pyperclip>=1.8.2",
-    "pyqt6-fluent-widgets[full]>=1.5.0",
+    "pyqt6-fluent-widgets>=1.5.0",
     "beautifulsoup4>=4.12.0",
+    "pillow>=11.3.0",
 ]
 
 [tool.uv]
