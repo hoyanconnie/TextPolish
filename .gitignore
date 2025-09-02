@@ -231,6 +231,9 @@ Temporary Items
 dist/
 build/
 
+# PyInstaller spec files (auto-generated)
+*.spec
+
 # IDE and editor files
 *.sublime-project
 *.sublime-workspace
