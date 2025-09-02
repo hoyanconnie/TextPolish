@@ -7,16 +7,17 @@ TextPolish - Gemini文本格式修复工具
 import sys
 import re
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QSplitter
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QMimeData
 from PyQt6.QtGui import QFont
 from qfluentwidgets import (
     FluentWindow, NavigationItemPosition, SubtitleLabel, BodyLabel,
     PlainTextEdit, PrimaryPushButton, PushButton, TransparentPushButton,
     InfoBar, InfoBarPosition, Theme, setTheme, CardWidget, setFont,
     FluentIcon as FIF, MessageBox, Action, RoundMenu, TransparentToolButton,
-    isDarkTheme, qconfig, TogglePushButton
+    isDarkTheme, qconfig, TogglePushButton, CheckBox
 )
 import pyperclip
+from bs4 import BeautifulSoup
 
 
 class TextPolishInterface(QWidget):
@@ -147,16 +148,45 @@ class TextPolishInterface(QWidget):
         layout.addWidget(self.process_btn, 0, Qt.AlignmentFlag.AlignCenter)
         
         # 清空按钮
-        self.clear_btn = PushButton(FIF.DELETE, "清空所有")
+        self.clear_btn = TransparentPushButton(FIF.DELETE, "清空所有")
         self.clear_btn.setFixedSize(120, 40)
         self.clear_btn.clicked.connect(self.clear_all)
         layout.addWidget(self.clear_btn, 0, Qt.AlignmentFlag.AlignCenter)
         
         # 复制结果按钮
-        self.copy_btn = TransparentPushButton(FIF.COPY, "复制结果")
+        self.copy_btn = PushButton(FIF.COPY, "文本复制")
         self.copy_btn.setFixedSize(120, 40)
         self.copy_btn.clicked.connect(self.copy_result)
         layout.addWidget(self.copy_btn, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # 带格式复制按钮
+        self.copy_formatted_btn = PushButton(FIF.EDIT, "格式复制")
+        self.copy_formatted_btn.setFixedSize(120, 40)
+        self.copy_formatted_btn.clicked.connect(self.copy_formatted_result)
+        layout.addWidget(self.copy_formatted_btn, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # 添加标题级别选择
+        layout.addSpacing(10)
+        
+        # 标题级别选择标签
+        level_label = BodyLabel("标题级别:")
+        setFont(level_label, 9)
+        layout.addWidget(level_label, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # 一级标题选择框
+        self.h1_checkbox = CheckBox("一级标题")
+        self.h1_checkbox.setChecked(True)  # 默认选中
+        layout.addWidget(self.h1_checkbox, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # 二级标题选择框
+        self.h2_checkbox = CheckBox("二级标题")
+        self.h2_checkbox.setChecked(True)  # 默认选中
+        layout.addWidget(self.h2_checkbox, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # 三级标题选择框
+        self.h3_checkbox = CheckBox("三级标题")
+        self.h3_checkbox.setChecked(True)  # 默认选中
+        layout.addWidget(self.h3_checkbox, 0, Qt.AlignmentFlag.AlignCenter)
         
         # 添加分隔线
         layout.addSpacing(20)
@@ -273,6 +303,207 @@ class TextPolishInterface(QWidget):
         
         return text
     
+    def convert_to_html(self, text, enable_h1=True, enable_h2=True, enable_h3=True):
+        """
+        将文本转换为HTML格式，根据标题规则识别标题层级
+        """
+        if not text.strip():
+            return ""
+        
+        lines = text.split('\n')
+        html_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # 根据要求识别标题，但要检查用户选择
+            # 1. 一级标题：第一章、第二章等到换行符为止，或者"前言" (方正小标宋_GBK，小二号字，居中)
+            if (re.match(r'^第[一二三四五六七八九十\d]+章', line) or line.strip() == '前言') and enable_h1:
+                html_lines.append(f'<h1><span style="mso-spacerun:\'yes\';font-family:\'Times New Roman\';mso-fareast-font-family:方正小标宋_GBK;font-size:18.0000pt;mso-font-kerning:22.0000pt;">{line}</span></h1>')
+            # 2. 二级标题：第一节、第二节等到换行符为止 或者 一、二、到换行符为止 (方正黑体_GBK，三号字，居中)
+            elif (re.match(r'^第[一二三四五六七八九十\d]+节', line) or re.match(r'^[一二三四五六七八九十]+、', line)) and enable_h2:
+                html_lines.append(f'<h2><span style="mso-spacerun:\'yes\';font-family:\'Times New Roman\';mso-fareast-font-family:方正黑体_GBK;font-size:16.0000pt;mso-font-kerning:1.0000pt;">{line}</span></h2>')
+            # 3. 三级标题：（一）、（二）等格式 (方正楷体_GBK，三号加粗，两端对齐)
+            elif re.match(r'^（[一二三四五六七八九十\d]+）', line) and enable_h3:
+                html_lines.append(f'<h3><span style="mso-spacerun:\'yes\';font-family:\'Times New Roman\';mso-fareast-font-family:方正楷体_GBK;font-size:16.0000pt;font-weight:bold;mso-font-kerning:1.0000pt;">{line}</span></h3>')
+            else:
+                # 检查是否包含段落开始需要特殊格式的部分
+                # 1. 第一句到句号为止
+                first_sentence_match = re.match(r'^([一二三四五六七八九十\d]+[是的][^。]*。)(.*)', line)
+                # 2. 段落开头到冒号为止
+                colon_match = re.match(r'^([^：]*：)(.*)', line)
+                
+                if (first_sentence_match or colon_match) and enable_h3:
+                    if first_sentence_match:
+                        # 分离出第一句和剩余部分
+                        special_part = first_sentence_match.group(1)
+                        remaining_text = first_sentence_match.group(2).strip()
+                    else:  # colon_match
+                        # 分离出冒号前的部分和剩余部分
+                        special_part = colon_match.group(1)
+                        remaining_text = colon_match.group(2).strip()
+                    
+                    # 构建HTML：特殊部分用楷体加粗格式，剩余部分用正文格式
+                    html_content = f'<p class="MsoNormal" style="text-align:justify;text-justify:inter-ideograph;">'
+                    html_content += f'<b><span style="mso-spacerun:\'yes\';font-family:\'Times New Roman\';mso-fareast-font-family:方正楷体_GBK;font-size:16.0000pt;font-weight:bold;mso-font-kerning:1.0000pt;">{special_part}</span></b>'
+                    
+                    if remaining_text:
+                        html_content += f'<span style="mso-spacerun:\'yes\';font-family:\'Times New Roman\';mso-ascii-font-family:\'Times New Roman\';mso-hansi-font-family:\'Times New Roman\';mso-bidi-font-family:\'Times New Roman\';mso-fareast-font-family:方正仿宋_GBK;font-size:16.0000pt;mso-font-kerning:1.0000pt;">{remaining_text}</span>'
+                    
+                    html_content += '</p>'
+                    html_lines.append(html_content)
+                else:
+                    # 普通正文 (西文：Times New Roman，中文：方正仿宋_GBK，三号字，首行缩进2字符)
+                    html_lines.append(f'<p class="MsoNormal"><span style="mso-spacerun:\'yes\';font-family:\'Times New Roman\';mso-ascii-font-family:\'Times New Roman\';mso-hansi-font-family:\'Times New Roman\';mso-bidi-font-family:\'Times New Roman\';mso-fareast-font-family:方正仿宋_GBK;font-size:16.0000pt;mso-font-kerning:1.0000pt;">{line}</span></p>')
+        
+        # 生成完整的HTML文档
+        html_content = self.generate_complete_html('\n'.join(html_lines))
+        return html_content
+    
+    def generate_complete_html(self, body_content):
+        """
+        生成完整的HTML文档结构，模仿WPS/Word的HTML格式
+        """
+        html_template = """<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="ProgId" content="Word.Document">
+<meta name="Generator" content="Microsoft Word 14">
+<title>处理后的文档</title>
+<style>
+@font-face {{
+    font-family: "Times New Roman";
+}}
+
+@font-face {{
+    font-family: "方正小标宋_GBK";
+}}
+
+@font-face {{
+    font-family: "方正黑体_GBK";
+}}
+
+@font-face {{
+    font-family: "方正楷体_GBK";
+}}
+
+@font-face {{
+    font-family: "方正仿宋_GBK";
+}}
+
+p.MsoNormal {{
+    mso-style-name: 正文;
+    margin: 0pt;
+    margin-bottom: .0001pt;
+    text-indent: 36.0000pt;
+    mso-char-indent-count: 2.0000;
+    mso-pagination: none;
+    text-align: justify;
+    text-justify: inter-ideograph;
+    font-family: 'Times New Roman';
+    mso-fareast-font-family: 方正仿宋_GBK;
+    font-size: 16.0000pt;
+    mso-font-kerning: 1.0000pt;
+    line-height: 100%;
+}}
+
+h1 {{
+    mso-style-name: "标题 1";
+    mso-style-next: 正文;
+    mso-para-margin-top: 0pt;
+    mso-para-margin-bottom: 0pt;
+    page-break-after: avoid;
+    mso-pagination: lines-together;
+    text-align: center;
+    mso-outline-level: 1;
+    line-height: 100%;
+    font-family: 'Times New Roman';
+    mso-fareast-font-family: 方正小标宋_GBK;
+    font-size: 18.0000pt;
+    mso-font-kerning: 22.0000pt;
+}}
+
+h2 {{
+    mso-style-name: "标题 2";
+    mso-style-next: 正文;
+    mso-para-margin-top: 0pt;
+    mso-para-margin-bottom: 0pt;
+    page-break-after: avoid;
+    mso-pagination: lines-together;
+    text-align: center;
+    mso-outline-level: 2;
+    line-height: 100%;
+    font-family: 'Times New Roman';
+    mso-fareast-font-family: 方正黑体_GBK;
+    font-size: 16.0000pt;
+    mso-font-kerning: 1.0000pt;
+}}
+
+h3 {{
+    mso-style-name: "标题 3";
+    mso-style-next: 正文;
+    mso-para-margin-top: 0pt;
+    mso-para-margin-bottom: 0pt;
+    page-break-after: avoid;
+    mso-pagination: lines-together;
+    text-align: justify;
+    text-justify: inter-ideograph;
+    mso-outline-level: 3;
+    line-height: 100%;
+    font-family: 'Times New Roman';
+    mso-fareast-font-family: 方正楷体_GBK;
+    font-size: 16.0000pt;
+    font-weight: bold;
+    mso-font-kerning: 1.0000pt;
+}}
+
+.bold {{
+    font-family: 'Times New Roman';
+    mso-fareast-font-family: 楷体;
+    font-weight: bold;
+    font-size: 16.0000pt;
+}}
+
+@page {{
+    mso-page-border-surround-header: no;
+    mso-page-border-surround-footer: no;
+}}
+
+@page Section0 {{
+}}
+
+div.Section0 {{
+    page: Section0;
+}}
+</style>
+</head>
+<body style="tab-interval:21pt;text-justify-trim:punctuation;">
+<!--StartFragment-->
+{body_content}
+<!--EndFragment-->
+</body>
+</html>"""
+        return html_template.format(body_content=body_content)
+    
+    def write_to_clipboard(self, html_content):
+        """
+        将HTML字符串和其对应的纯文本版本放入剪贴板
+        """
+        app = QApplication.instance()
+        clipboard = app.clipboard()
+        
+        # 从HTML中提取纯文本，作为备用格式
+        plain_text = BeautifulSoup(html_content, 'html.parser').get_text(separator='\n', strip=True)
+        
+        mime_data = QMimeData()
+        # 关键：同时设置HTML格式和纯文本格式
+        mime_data.setHtml(html_content)
+        mime_data.setText(plain_text)
+        
+        clipboard.setMimeData(mime_data)
+    
     def process_text(self):
         """处理文本"""
         try:
@@ -370,6 +601,65 @@ class TextPolishInterface(QWidget):
         except Exception as e:
             InfoBar.error(
                 title="复制失败",
+                content=str(e),
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=1000,
+                parent=self
+            )
+    
+    def copy_formatted_result(self):
+        """带格式复制处理结果到剪贴板"""
+        try:
+            result_text = self.output_text.toPlainText().strip()
+            if not result_text:
+                InfoBar.warning(
+                    title="提示",
+                    content="没有可复制的内容",
+                    orient=Qt.Orientation.Horizontal,
+                    isClosable=True,
+                    position=InfoBarPosition.TOP,
+                    duration=1000,
+                    parent=self
+                )
+                return
+            
+            # 获取用户选择的标题级别
+            enable_h1 = self.h1_checkbox.isChecked()
+            enable_h2 = self.h2_checkbox.isChecked()
+            enable_h3 = self.h3_checkbox.isChecked()
+            
+            # 转换为HTML格式
+            html_content = self.convert_to_html(result_text, enable_h1, enable_h2, enable_h3)
+            
+            # 复制到剪贴板（同时包含HTML和纯文本格式）
+            self.write_to_clipboard(html_content)
+            
+            # 生成提示信息
+            selected_levels = []
+            if enable_h1:
+                selected_levels.append("一级标题")
+            if enable_h2:
+                selected_levels.append("二级标题")
+            if enable_h3:
+                selected_levels.append("三级标题")
+            
+            levels_text = "、".join(selected_levels) if selected_levels else "无格式"
+            
+            InfoBar.success(
+                title="格式化复制成功",
+                content=f"已应用{levels_text}格式，可直接粘贴到WPS/Word等软件",
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=2000,
+                parent=self
+            )
+            
+        except Exception as e:
+            InfoBar.error(
+                title="格式化复制失败",
                 content=str(e),
                 orient=Qt.Orientation.Horizontal,
                 isClosable=True,
