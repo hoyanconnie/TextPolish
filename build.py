@@ -61,6 +61,7 @@ def main():
             "--name=TextPolish",   # 指定输出文件名
             "--clean",             # 清理缓存
             "--noconfirm",         # 不询问确认
+            "--add-data=icon.ico;.",
         ]
         
         # 如果存在图标文件，添加图标参数
