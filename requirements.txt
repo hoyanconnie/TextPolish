@@ -1,0 +1,6 @@
+# TextPolish 运行时依赖
+pyperclip>=1.8.2
+PyQt6-Fluent-Widgets[full]>=1.5.0
+
+# 构建依赖（用于生成exe文件）
+pyinstaller>=6.0.0
