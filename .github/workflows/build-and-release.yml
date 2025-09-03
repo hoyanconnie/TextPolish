@@ -34,8 +34,13 @@ jobs:
         
     - name: 构建exe文件
       run: |
-        # 使用uv运行构建脚本
-        uv run python build.py
+        # 清理旧的构建文件
+        if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
+        if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
+        if (Test-Path "*.spec") { Remove-Item -Force "*.spec" }
+        
+        # 直接使用PyInstaller构建
+        uv run python -m PyInstaller --onefile --windowed --name=TextPolish --clean --noconfirm --add-data="icon.ico;." --icon=icon.ico main.py
         
     - name: 验证构建结果
       run: |

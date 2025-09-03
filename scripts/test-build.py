@@ -42,7 +42,7 @@ def main():
     print(f"📁 项目根目录: {project_root.absolute()}")
     
     # 检查必要文件
-    required_files = ["main.py", "pyproject.toml", "build.py"]
+    required_files = ["main.py", "pyproject.toml", "icon.ico"]
     for file in required_files:
         file_path = project_root / file
         if file_path.exists():
@@ -64,11 +64,26 @@ def main():
     print("✅ 依赖安装完成")
     print()
     
-    # 2. 运行构建
+    # 2. 清理和构建
     print("🔨 开始构建...")
     start_time = time.time()
     
-    if not run_command("uv run python build.py", "执行构建脚本", cwd=project_root):
+    # 清理旧文件
+    print("🧹 清理旧的构建文件...")
+    for dirname in ["build", "dist"]:
+        dir_path = project_root / dirname
+        if dir_path.exists():
+            shutil.rmtree(dir_path)
+            print(f"✅ 已删除 {dirname}/")
+    
+    # 清理spec文件
+    for spec_file in project_root.glob("*.spec"):
+        spec_file.unlink()
+        print(f"✅ 已删除 {spec_file.name}")
+    
+    # 运行PyInstaller构建
+    build_cmd = 'uv run python -m PyInstaller --onefile --windowed --name=TextPolish --clean --noconfirm --add-data="icon.ico;." --icon=icon.ico main.py'
+    if not run_command(build_cmd, "执行PyInstaller构建", cwd=project_root):
         return False
     
     build_time = time.time() - start_time
@@ -119,7 +134,7 @@ if __name__ == "__main__":
             print("\n💡 建议:")
             print("1. 检查所有依赖是否正确安装")
             print("2. 确保main.py可以正常运行")
-            print("3. 检查build.py脚本是否有问题")
+            print("3. 检查PyInstaller参数是否正确")
             sys.exit(1)
         else:
             print("🚀 可以安全地提交代码并创建标签了！")

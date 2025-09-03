@@ -40,7 +40,7 @@ git push origin v1.0.1
 1. **构建触发**: GitHub检测到新的`v*`标签
 2. **环境准备**: 设置Python 3.13和uv环境
 3. **依赖安装**: 运行`uv sync`安装所有依赖
-4. **exe构建**: 执行`build.py`生成Windows可执行文件
+4. **exe构建**: 直接使用PyInstaller生成Windows可执行文件
 5. **文件验证**: 检查exe文件是否成功生成
 6. **创建Release**: 自动创建GitHub Release并上传exe文件
 
@@ -67,7 +67,7 @@ git push origin v1.0.1
 2. 安装Python (actions/setup-python@v4)
 3. 安装uv (astral-sh/setup-uv@v3)
 4. 安装项目依赖 (uv sync)
-5. 构建exe文件 (uv run python build.py)
+5. 构建exe文件 (直接使用PyInstaller)
 6. 验证构建结果
 7. 上传构建产物 (actions/upload-artifact@v4)
 8. 创建Release (softprops/action-gh-release@v1)
@@ -131,7 +131,7 @@ uv run python scripts/test-build.py
 **问题**: GitHub Actions构建失败
 **解决方案**:
 - 检查`pyproject.toml`中的依赖是否正确
-- 确保`build.py`能在本地正常运行
+- 确保PyInstaller构建参数正确
 - 查看Actions日志获取详细错误信息
 
 #### 2. exe文件无法运行
@@ -173,7 +173,7 @@ uv run python scripts/test-build.py
    ```yaml
    - name: 构建exe文件
      run: |
-       uv run python build.py --additional-param
+       uv run python -m PyInstaller --onefile --windowed --name=TextPolish --clean --noconfirm --add-data="icon.ico;." --icon=icon.ico main.py
    ```
 
 3. **修改Release内容**:

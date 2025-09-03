@@ -113,7 +113,7 @@ Gemini AI是一个强大的工具，它能够：
   - `app.py` - 应用程序类
 - `pyproject.toml` - uv项目配置
 - `TextPolish.spec` - PyInstaller构建配置
-- `build.py` - 构建脚本
+
 - `icon.ico` - 应用图标
 
 ## 📋 标题识别规则
@@ -301,7 +301,7 @@ TextPolish/
 ├── icon.ico / icon.png          # 应用图标
 ├── pyproject.toml               # uv项目配置
 ├── TextPolish.spec              # PyInstaller配置
-└── build.py                     # 构建脚本
+
 ```
 
 #### 🏗️ 架构说明
