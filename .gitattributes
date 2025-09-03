@@ -1,0 +1,24 @@
+# 确保在Windows上正确处理行结束符
+* text=auto
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+
+# 二进制文件
+*.exe binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.zip binary
+*.tar.gz binary
+
+# PyInstaller构建产物
+build/ export-ignore
+dist/ export-ignore
+*.spec export-ignore
+__pycache__/ export-ignore
+*.pyc export-ignore

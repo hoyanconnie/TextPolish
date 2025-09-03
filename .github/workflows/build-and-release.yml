@@ -1,0 +1,95 @@
+name: Build and Release TextPolish
+
+# 触发条件：当推送tag时自动构建
+on:
+  push:
+    tags:
+      - 'v*'  # 匹配 v1.0.0, v2.1.0 等版本标签
+  workflow_dispatch:  # 允许手动触发
+
+env:
+  PYTHON_VERSION: '3.13'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: 安装uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+        
+    - name: 安装项目依赖
+      run: |
+        uv sync
+        
+    - name: 构建exe文件
+      run: |
+        # 使用uv运行构建脚本
+        uv run python build.py
+        
+    - name: 验证构建结果
+      run: |
+        if (Test-Path "dist/TextPolish.exe") {
+          Write-Host "✅ 构建成功！exe文件已生成"
+          $fileSize = (Get-Item "dist/TextPolish.exe").Length
+          $sizeMB = [math]::Round($fileSize / 1MB, 2)
+          Write-Host "📦 文件大小: $sizeMB MB"
+        } else {
+          Write-Host "❌ 构建失败！未找到exe文件"
+          exit 1
+        }
+        
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v4
+      with:
+        name: TextPolish-Windows
+        path: dist/TextPolish.exe
+        retention-days: 30
+        
+    - name: 创建Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/TextPolish.exe
+        name: TextPolish ${{ github.ref_name }}
+        body: |
+          ## TextPolish ${{ github.ref_name }}
+          
+          ### 📦 下载
+          - **Windows**: [TextPolish.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/TextPolish.exe)
+          
+          ### 🚀 功能特性
+          - Gemini AI文本格式修复
+          - 一键复制格式化文本
+          - 支持多种文本处理模式
+          - 现代化用户界面
+          
+          ### 💻 系统要求
+          - Windows 10/11 (64位)
+          - 无需安装Python或其他依赖
+          
+          ### 📖 使用说明
+          1. 下载 `TextPolish.exe`
+          2. 双击运行即可使用
+          3. 无需安装，绿色便携
+          
+          ---
+          
+          **构建信息**
+          - 构建时间: ${{ github.event.head_commit.timestamp }}
+          - Git提交: ${{ github.sha }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
