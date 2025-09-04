@@ -49,6 +49,22 @@ class HTMLGenerator:
         
         return '\n'.join(html_lines)
     
+    def _wrap_numbers_with_western_font(self, text: str) -> str:
+        """将数字序列包裹为 Times New Roman 字体，保留其余文本字体不变"""
+        def repl(match):
+            num = match.group(0)
+            return (
+                '<span style="font-family:\'Times New Roman\';" '
+                + 'mso-ascii-font-family:\'Times New Roman\';'
+                + 'mso-hansi-font-family:\'Times New Roman\';'
+                + 'mso-bidi-font-family:\'Times New Roman\';>'
+                + num
+                + '</span>'
+            )
+        # 数字序列：支持千分位逗号、小数点、百分号、年号中的数字
+        pattern = r"(?<![A-Za-z])(?:\d[\d,\.]*%?)"
+        return re.sub(pattern, repl, text)
+    
     def _process_line(self, line: str, enable_h1: bool, 
                      enable_h2: bool, enable_h3: bool) -> str:
         """
@@ -113,8 +129,10 @@ class HTMLGenerator:
         
         span_style = (
             f"mso-spacerun:'yes';"
-            f"font-family:'Times New Roman';"
             f"mso-fareast-font-family:{format_info['font_family']};"
+            f"mso-ascii-font-family:{format_info['font_family']};"
+            f"mso-hansi-font-family:{format_info['font_family']};"
+            f"mso-bidi-font-family:{format_info['font_family']};"
             f"font-size:{format_info['font_size']};"
             f"mso-font-kerning:{format_info['font_kerning']};"
         )
@@ -122,7 +140,8 @@ class HTMLGenerator:
         if level == 'h3' and 'font_weight' in format_info:
             span_style += f"font-weight:{format_info['font_weight']};"
         
-        return f'<{level}><span style="{span_style}">{line}</span></{level}>'
+        content = self._wrap_numbers_with_western_font(line)
+        return f'<{level}><span style="{span_style}">{content}</span></{level}>'
     
     def _process_special_format(self, line: str) -> Optional[str]:
         """
@@ -153,27 +172,28 @@ class HTMLGenerator:
             # 特殊部分（楷体加粗）
             special_style = (
                 "mso-spacerun:'yes';"
-                "font-family:'Times New Roman';"
                 "mso-fareast-font-family:方正楷体_GBK;"
+                "mso-ascii-font-family:方正楷体_GBK;"
+                "mso-hansi-font-family:方正楷体_GBK;"
+                "mso-bidi-font-family:方正楷体_GBK;"
                 "font-size:16.0000pt;"
                 "font-weight:bold;"
                 "mso-font-kerning:1.0000pt;"
             )
-            html_content += f'<b><span style="{special_style}">{special_part}</span></b>'
+            html_content += f'<b><span style="{special_style}">{self._wrap_numbers_with_western_font(special_part)}</span></b>'
             
             # 剩余部分（正文格式）
             if remaining_text:
                 normal_style = (
                     "mso-spacerun:'yes';"
-                    "font-family:'Times New Roman';"
-                    "mso-ascii-font-family:'Times New Roman';"
-                    "mso-hansi-font-family:'Times New Roman';"
-                    "mso-bidi-font-family:'Times New Roman';"
                     "mso-fareast-font-family:方正仿宋_GBK;"
+                    "mso-ascii-font-family:方正仿宋_GBK;"
+                    "mso-hansi-font-family:方正仿宋_GBK;"
+                    "mso-bidi-font-family:方正仿宋_GBK;"
                     "font-size:16.0000pt;"
                     "mso-font-kerning:1.0000pt;"
                 )
-                html_content += f'<span style="{normal_style}">{remaining_text}</span>'
+                html_content += f'<span style="{normal_style}">{self._wrap_numbers_with_western_font(remaining_text)}</span>'
             
             html_content += '</p>'
             return html_content
@@ -192,16 +212,16 @@ class HTMLGenerator:
         """
         normal_style = (
             "mso-spacerun:'yes';"
-            "font-family:'Times New Roman';"
-            "mso-ascii-font-family:'Times New Roman';"
-            "mso-hansi-font-family:'Times New Roman';"
-            "mso-bidi-font-family:'Times New Roman';"
             "mso-fareast-font-family:方正仿宋_GBK;"
+            "mso-ascii-font-family:方正仿宋_GBK;"
+            "mso-hansi-font-family:方正仿宋_GBK;"
+            "mso-bidi-font-family:方正仿宋_GBK;"
             "font-size:16.0000pt;"
             "mso-font-kerning:1.0000pt;"
         )
         
-        return f'<p class="MsoNormal"><span style="{normal_style}">{line}</span></p>'
+        content = self._wrap_numbers_with_western_font(line)
+        return f'<p class="MsoNormal"><span style="{normal_style}">{content}</span></p>'
     
     def generate_preview_html(self, body_content: str, is_dark_theme: bool = False) -> str:
         """
@@ -304,9 +324,9 @@ p.MsoNormal {{
 <meta name="Generator" content="Microsoft Word 14">
 <title>处理后的文档</title>
 <style>
-@font-face {{
-    font-family: "Times New Roman";
-}}
+# @font-face {{
+#     font-family: "Times New Roman";
+# }}
 
 @font-face {{
     font-family: "方正小标宋_GBK";
@@ -333,8 +353,10 @@ p.MsoNormal {{
     mso-pagination: none;
     text-align: justify;
     text-justify: inter-ideograph;
-    font-family: 'Times New Roman';
     mso-fareast-font-family: 方正仿宋_GBK;
+    mso-ascii-font-family: 方正仿宋_GBK;
+    mso-hansi-font-family: 方正仿宋_GBK;
+    mso-bidi-font-family: 方正仿宋_GBK;
     font-size: 16.0000pt;
     mso-font-kerning: 1.0000pt;
     line-height: 100%;
@@ -350,8 +372,10 @@ h1 {{
     text-align: center;
     mso-outline-level: 1;
     line-height: 100%;
-    font-family: 'Times New Roman';
     mso-fareast-font-family: 方正小标宋_GBK;
+    mso-ascii-font-family: 方正小标宋_GBK;
+    mso-hansi-font-family: 方正小标宋_GBK;
+    mso-bidi-font-family: 方正小标宋_GBK;
     font-size: 18.0000pt;
     mso-font-kerning: 22.0000pt;
 }}
@@ -366,8 +390,10 @@ h2 {{
     text-align: center;
     mso-outline-level: 2;
     line-height: 100%;
-    font-family: 'Times New Roman';
     mso-fareast-font-family: 方正黑体_GBK;
+    mso-ascii-font-family: 方正黑体_GBK;
+    mso-hansi-font-family: 方正黑体_GBK;
+    mso-bidi-font-family: 方正黑体_GBK;
     font-size: 16.0000pt;
     mso-font-kerning: 1.0000pt;
 }}
@@ -383,8 +409,10 @@ h3 {{
     text-justify: inter-ideograph;
     mso-outline-level: 3;
     line-height: 100%;
-    font-family: 'Times New Roman';
     mso-fareast-font-family: 方正楷体_GBK;
+    mso-ascii-font-family: 方正楷体_GBK;
+    mso-hansi-font-family: 方正楷体_GBK;
+    mso-bidi-font-family: 方正楷体_GBK;
     font-size: 16.0000pt;
     font-weight: bold;
     mso-font-kerning: 1.0000pt;

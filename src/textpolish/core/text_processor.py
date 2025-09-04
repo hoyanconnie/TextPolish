@@ -74,12 +74,11 @@ class TextProcessor:
         return text
     
     def _process_quotes(self, text: str) -> str:
-        """处理引号的特殊情况"""
-        # 将连续的英文双引号替换为中文引号
-        text = re.sub(r'"([^"]*)"', r'"\1"', text)
-        # 单引号替换
-        text = re.sub(r"'([^']*)'", r"'\1'", text)
-        
+        """处理引号：将英文直引号替换为中文引号"""
+        # 先处理成对双引号：避免跨段落，限制在同一行内
+        text = re.sub(r'"([^"\n]+)"', r'“\1”', text)
+        # 再处理成对单引号：避免英文缩写中的撇号（通过要求两侧不同时为字母来降低误伤）
+        text = re.sub(r"(?<![A-Za-z])'([^'\n]+)'(?![A-Za-z])", r"‘\1’", text)
         return text
     
     def _clean_whitespace(self, text: str) -> str:
