@@ -74,6 +74,9 @@ jobs:
           ### 📦 下载
           - **Windows**: [TextPolish.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/TextPolish.exe)
           
+          ### 📝 更新说明
+          - 修复了英文引号转换为中文引号的问题
+
           ### 🚀 功能特性
           - Gemini AI文本格式修复
           - 一键复制格式化文本
