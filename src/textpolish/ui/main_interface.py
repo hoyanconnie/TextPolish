@@ -39,6 +39,7 @@ class TextPolishInterface(QWidget):
         
         # 状态变量
         self.processed_text = ""
+        self.config_interface = None  # 配置界面引用
         
         # 初始化UI
         self.initUI()
@@ -178,71 +179,15 @@ class TextPolishInterface(QWidget):
         self.copy_formatted_btn.clicked.connect(self.copy_formatted_result)
         layout.addWidget(self.copy_formatted_btn, 0, Qt.AlignmentFlag.AlignCenter)
         
-        # 标题级别选择
-        layout.addSpacing(10)
-        
-        level_label = BodyLabel("标题级别:")
-        setFont(level_label, FONTS['level_label']['size'])
-        layout.addWidget(level_label, 0, Qt.AlignmentFlag.AlignCenter)
-        
-        # 复选框
-        self.h1_checkbox = CheckBox("一级标题")
-        self.h1_checkbox.setChecked(True)
-        layout.addWidget(self.h1_checkbox, 0, Qt.AlignmentFlag.AlignCenter)
-        
-        self.h2_checkbox = CheckBox("二级标题")
-        self.h2_checkbox.setChecked(True)
-        layout.addWidget(self.h2_checkbox, 0, Qt.AlignmentFlag.AlignCenter)
-        
-        self.h3_checkbox = CheckBox("三级标题")
-        self.h3_checkbox.setChecked(True)
-        layout.addWidget(self.h3_checkbox, 0, Qt.AlignmentFlag.AlignCenter)
-        
-        # 分隔线
-        layout.addSpacing(20)
-        
-        # 主题切换按钮
-        self.theme_btn = self.create_theme_button()
-        layout.addWidget(self.theme_btn, 0, Qt.AlignmentFlag.AlignCenter)
         
         # 添加底部弹簧
         layout.addStretch(1)
         
         return widget
     
-    def create_theme_button(self):
-        """创建主题切换按钮"""
-        icon_text = "🌙" if isDarkTheme() else "☀️"
-        btn = TransparentPushButton(icon_text)
-        btn.setFixedSize(BUTTON_WIDTH, BUTTON_HEIGHT)
-        btn.clicked.connect(self.toggle_theme)
-        btn.setToolTip("切换亮暗主题")
-        return btn
-    
-    def toggle_theme(self):
-        """切换亮暗主题"""
-        if isDarkTheme():
-            setTheme(Theme.LIGHT)
-            self.theme_btn.setText("☀️")
-            theme_name = "浅色主题"
-        else:
-            setTheme(Theme.DARK)
-            self.theme_btn.setText("🌙")
-            theme_name = "深色主题"
-        
-        # 更新分割器样式
-        self.update_splitter_style(self.splitter)
-        
-        # 显示主题切换提示
-        InfoBar.success(
-            title=MESSAGES['success']['theme_switched'],
-            content=f"已切换到{theme_name}",
-            orient=Qt.Orientation.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP,
-            duration=1000,
-            parent=self
-        )
+    def set_config_interface(self, config_interface):
+        """设置配置界面引用"""
+        self.config_interface = config_interface
     
     def process_text(self):
         """处理文本"""
@@ -268,8 +213,19 @@ class TextPolishInterface(QWidget):
             # 处理文本
             cleaned_text = self.text_processor.clean_text(input_content)
             
+            # 获取标题匹配设置
+            if self.config_interface:
+                settings = self.config_interface.get_title_matching_settings()
+                enable_h1 = settings['enable_h1']
+                enable_h2 = settings['enable_h2']
+                enable_h3 = settings['enable_h3']
+                enable_special = settings['enable_special']
+            else:
+                # 默认全部启用
+                enable_h1 = enable_h2 = enable_h3 = enable_special = True
+            
             # 生成HTML并显示预览
-            body_content = self.html_generator.convert_to_html(cleaned_text, True, True, True)
+            body_content = self.html_generator.convert_to_html(cleaned_text, enable_h1, enable_h2, enable_h3, enable_special)
             preview_html = self.html_generator.generate_preview_html(
                 body_content, isDarkTheme()
             )
@@ -376,14 +332,20 @@ class TextPolishInterface(QWidget):
                 )
                 return
             
-            # 获取用户选择的标题级别
-            enable_h1 = self.h1_checkbox.isChecked()
-            enable_h2 = self.h2_checkbox.isChecked()
-            enable_h3 = self.h3_checkbox.isChecked()
+            # 获取标题匹配设置
+            if self.config_interface:
+                settings = self.config_interface.get_title_matching_settings()
+                enable_h1 = settings['enable_h1']
+                enable_h2 = settings['enable_h2']
+                enable_h3 = settings['enable_h3']
+                enable_special = settings['enable_special']
+            else:
+                # 默认全部启用
+                enable_h1 = enable_h2 = enable_h3 = enable_special = True
             
             # 转换为WPS格式HTML
             body_content = self.html_generator.convert_to_html(
-                self.processed_text, enable_h1, enable_h2, enable_h3
+                self.processed_text, enable_h1, enable_h2, enable_h3, enable_special
             )
             html_content = self.html_generator.generate_wps_html(body_content)
             
@@ -398,6 +360,8 @@ class TextPolishInterface(QWidget):
                 selected_levels.append("二级标题")
             if enable_h3:
                 selected_levels.append("三级标题")
+            if enable_special:
+                selected_levels.append("特殊格式")
             
             levels_text = "、".join(selected_levels) if selected_levels else "无格式"
             
@@ -425,14 +389,20 @@ class TextPolishInterface(QWidget):
     def update_preview_theme(self):
         """主题切换时更新预览"""
         if hasattr(self, 'processed_text') and self.processed_text:
-            # 获取当前的格式设置
-            enable_h1 = self.h1_checkbox.isChecked()
-            enable_h2 = self.h2_checkbox.isChecked()
-            enable_h3 = self.h3_checkbox.isChecked()
+            # 获取标题匹配设置
+            if self.config_interface:
+                settings = self.config_interface.get_title_matching_settings()
+                enable_h1 = settings['enable_h1']
+                enable_h2 = settings['enable_h2']
+                enable_h3 = settings['enable_h3']
+                enable_special = settings['enable_special']
+            else:
+                # 默认全部启用
+                enable_h1 = enable_h2 = enable_h3 = enable_special = True
             
             # 重新生成预览HTML
             body_content = self.html_generator.convert_to_html(
-                self.processed_text, enable_h1, enable_h2, enable_h3
+                self.processed_text, enable_h1, enable_h2, enable_h3, enable_special
             )
             preview_html = self.html_generator.generate_preview_html(
                 body_content, isDarkTheme()

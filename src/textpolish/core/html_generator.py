@@ -6,7 +6,7 @@ HTML生成模块 - 负责将文本转换为格式化的HTML
 import re
 from typing import Dict, List, Tuple, Optional
 
-from ..config import TITLE_PATTERNS, TITLE_FORMATS, THEME_COLORS, HTML_NAMESPACE
+from ..config import THEME_COLORS, HTML_NAMESPACE, user_config_manager
 
 
 class HTMLGenerator:
@@ -14,12 +14,11 @@ class HTMLGenerator:
     
     def __init__(self):
         """初始化HTML生成器"""
-        self.title_patterns = TITLE_PATTERNS
-        self.title_formats = TITLE_FORMATS
         self.theme_colors = THEME_COLORS
     
     def convert_to_html(self, text: str, enable_h1: bool = True, 
-                       enable_h2: bool = True, enable_h3: bool = True) -> str:
+                       enable_h2: bool = True, enable_h3: bool = True, 
+                       enable_special: bool = True) -> str:
         """
         将文本转换为HTML格式，根据标题规则识别标题层级
         
@@ -28,6 +27,7 @@ class HTMLGenerator:
             enable_h1: 是否启用一级标题格式
             enable_h2: 是否启用二级标题格式 
             enable_h3: 是否启用三级标题格式
+            enable_special: 是否启用特殊格式识别
             
         Returns:
             HTML body内容（不包含完整HTML文档结构）
@@ -44,7 +44,7 @@ class HTMLGenerator:
                 continue
             
             # 识别并处理各级标题
-            html_line = self._process_line(line, enable_h1, enable_h2, enable_h3)
+            html_line = self._process_line(line, enable_h1, enable_h2, enable_h3, enable_special)
             html_lines.append(html_line)
         
         return '\n'.join(html_lines)
@@ -66,7 +66,7 @@ class HTMLGenerator:
         return re.sub(pattern, repl, text)
     
     def _process_line(self, line: str, enable_h1: bool, 
-                     enable_h2: bool, enable_h3: bool) -> str:
+                     enable_h2: bool, enable_h3: bool, enable_special: bool) -> str:
         """
         处理单行文本，识别标题级别并生成相应HTML
         
@@ -75,6 +75,7 @@ class HTMLGenerator:
             enable_h1: 是否启用一级标题
             enable_h2: 是否启用二级标题
             enable_h3: 是否启用三级标题
+            enable_special: 是否启用特殊格式
             
         Returns:
             格式化的HTML行
@@ -92,7 +93,7 @@ class HTMLGenerator:
             return self._generate_title_html(line, 'h3')
         
         # 检查特殊格式段落
-        if enable_h3:
+        if enable_special:
             special_html = self._process_special_format(line)
             if special_html:
                 return special_html
@@ -111,7 +112,7 @@ class HTMLGenerator:
         Returns:
             是否匹配
         """
-        patterns = self.title_patterns.get(level, [])
+        patterns = user_config_manager.get_enabled_patterns(level)
         return any(re.match(pattern, line) for pattern in patterns)
     
     def _generate_title_html(self, line: str, level: str) -> str:
@@ -125,7 +126,7 @@ class HTMLGenerator:
         Returns:
             标题HTML
         """
-        format_info = self.title_formats[level]
+        format_info = user_config_manager.get_style_dict(level)
         
         span_style = (
             f"mso-spacerun:'yes';"
@@ -153,10 +154,74 @@ class HTMLGenerator:
         Returns:
             特殊格式HTML或None
         """
+        # 获取特殊格式的正则表达式
+        special_patterns = user_config_manager.get_enabled_patterns('special_format')
+        
+        # 检查每个启用的特殊格式模式
+        for pattern in special_patterns:
+            match = re.match(pattern, line)
+            if match:
+                groups = match.groups()
+                if len(groups) == 2:
+                    # 普通格式：特殊部分 + 剩余文本
+                    special_part = groups[0]
+                    remaining_text = groups[1].strip() if groups[1] else ""
+                    return self._generate_special_format_html(special_part, remaining_text)
+                elif len(groups) == 3:
+                    # 括号格式：序号 + 标题 + 剩余文本
+                    number = groups[0]
+                    title = groups[1]
+                    remaining_text = groups[2].strip() if groups[2] else ""
+                    special_part = f"（{number}）{title}"
+                    return self._generate_special_format_html(special_part, remaining_text)
+        
+        return None
+    
+    def _generate_special_format_html(self, special_part: str, remaining_text: str) -> str:
+        """生成特殊格式HTML"""
+        # 获取特殊格式样式配置
+        special_style_config = user_config_manager.get_style_dict('special_format')
+        normal_style_config = user_config_manager.get_style_dict('normal')
+        
+        # 构建特殊格式HTML
+        html_content = '<p class="MsoNormal" style="text-align:justify;text-justify:inter-ideograph;">'
+        
+        # 特殊部分样式
+        special_style = (
+            "mso-spacerun:'yes';"
+            f"mso-fareast-font-family:{special_style_config.get('font_family', '方正楷体_GBK')};"
+            f"mso-ascii-font-family:{special_style_config.get('font_family', '方正楷体_GBK')};"
+            f"mso-hansi-font-family:{special_style_config.get('font_family', '方正楷体_GBK')};"
+            f"mso-bidi-font-family:{special_style_config.get('font_family', '方正楷体_GBK')};"
+            f"font-size:{special_style_config.get('font_size', '16.0000pt')};"
+            f"mso-font-kerning:{special_style_config.get('font_kerning', '1.0000pt')};"
+            f"font-weight:{special_style_config.get('font_weight', 'bold')};"
+        )
+        
+        html_content += f'<span style="{special_style}">{self._wrap_numbers_with_western_font(special_part)}</span>'
+        
+        # 如果有剩余文本
+        if remaining_text:
+            normal_style = (
+                "mso-spacerun:'yes';"
+                f"mso-fareast-font-family:{normal_style_config.get('font_family', '方正仿宋_GBK')};"
+                f"mso-ascii-font-family:{normal_style_config.get('font_family', '方正仿宋_GBK')};"
+                f"mso-hansi-font-family:{normal_style_config.get('font_family', '方正仿宋_GBK')};"
+                f"mso-bidi-font-family:{normal_style_config.get('font_family', '方正仿宋_GBK')};"
+                f"font-size:{normal_style_config.get('font_size', '16.0000pt')};"
+                f"mso-font-kerning:{normal_style_config.get('font_kerning', '1.0000pt')};"
+            )
+            html_content += f'<span style="{normal_style}">{self._wrap_numbers_with_western_font(remaining_text)}</span>'
+        
+        html_content += '</p>'
+        return html_content
+    
+    def _old_process_special_format(self, line: str) -> Optional[str]:
+        """旧的特殊格式处理方法，保留作为参考"""
         # 检查第一句到句号
-        first_sentence_match = re.match(self.title_patterns['special_format'][0], line)
+        first_sentence_match = None  # re.match(self.title_patterns['special_format'][0], line)
         # 检查开头到冒号  
-        colon_match = re.match(self.title_patterns['special_format'][1], line)
+        colon_match = None  # re.match(self.title_patterns['special_format'][1], line)
         
         if first_sentence_match or colon_match:
             if first_sentence_match:
@@ -210,14 +275,17 @@ class HTMLGenerator:
         Returns:
             段落HTML
         """
+        # 获取正文样式配置
+        normal_config = user_config_manager.get_style_dict('normal')
+        
         normal_style = (
             "mso-spacerun:'yes';"
-            "mso-fareast-font-family:方正仿宋_GBK;"
-            "mso-ascii-font-family:方正仿宋_GBK;"
-            "mso-hansi-font-family:方正仿宋_GBK;"
-            "mso-bidi-font-family:方正仿宋_GBK;"
-            "font-size:16.0000pt;"
-            "mso-font-kerning:1.0000pt;"
+            f"mso-fareast-font-family:{normal_config.get('font_family', '方正仿宋_GBK')};"
+            f"mso-ascii-font-family:{normal_config.get('font_family', '方正仿宋_GBK')};"
+            f"mso-hansi-font-family:{normal_config.get('font_family', '方正仿宋_GBK')};"
+            f"mso-bidi-font-family:{normal_config.get('font_family', '方正仿宋_GBK')};"
+            f"font-size:{normal_config.get('font_size', '16.0000pt')};"
+            f"mso-font-kerning:{normal_config.get('font_kerning', '1.0000pt')};"
         )
         
         content = self._wrap_numbers_with_western_font(line)

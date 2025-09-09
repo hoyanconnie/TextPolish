@@ -1,0 +1,133 @@
+{
+  "app_info": {
+    "name": "TextPolish",
+    "version": "2.0.0",
+    "description": "Gemini文本格式修复工具"
+  },
+  "ui_framework": {
+    "QFluentWidgets": {
+      "ThemeColor": "#ff009faa",
+      "ThemeMode": "Dark"
+    }
+  },
+  "default_user_config": {
+    "h1": {
+      "style": {
+        "font_family": "方正小标宋_GBK",
+        "font_size": "18.0000pt",
+        "font_kerning": "22.0000pt",
+        "font_weight": "normal",
+        "alignment": "center",
+        "text_indent": "0.0000pt",
+        "description": "一级标题：第一章第二章到换行符为止，字体：方正小标宋_GBK；字号：小二；格式：居中"
+      },
+      "patterns": [
+        {
+          "pattern": "^第[一二三四五六七八九十\\d]+章",
+          "name": "章节标题",
+          "enabled": true,
+          "description": "第一章、第二章等"
+        },
+        {
+          "pattern": "^前言$",
+          "name": "前言标题",
+          "enabled": true,
+          "description": "前言"
+        }
+      ]
+    },
+    "h2": {
+      "style": {
+        "font_family": "方正黑体_GBK",
+        "font_size": "16.0000pt",
+        "font_kerning": "1.0000pt",
+        "font_weight": "normal",
+        "alignment": "center",
+        "text_indent": "0.0000pt",
+        "description": "二级标题：第一节第二节到换行符为止或者一、二、到换行符为止，字体：方正黑体_GBK；字号：三号；格式：居中"
+      },
+      "patterns": [
+        {
+          "pattern": "^第[一二三四五六七八九十\\d]+节",
+          "name": "节次标题",
+          "enabled": true,
+          "description": "第一节、第二节等"
+        },
+        {
+          "pattern": "^[一二三四五六七八九十]+、",
+          "name": "序号标题",
+          "enabled": true,
+          "description": "一、二、等"
+        }
+      ]
+    },
+    "h3": {
+      "style": {
+        "font_family": "方正楷体_GBK",
+        "font_size": "16.0000pt",
+        "font_kerning": "1.0000pt",
+        "font_weight": "bold",
+        "alignment": "justify",
+        "text_indent": "0.0000pt",
+        "description": "三级标题：段落的开始第一句到句号为止，字体：方正楷体_GBK；字号：三号加粗；格式：两端对齐"
+      },
+      "patterns": [
+        {
+          "pattern": "^（[一二三四五六七八九十\\d]+）",
+          "name": "带括号序号",
+          "enabled": true,
+          "description": "（一）、（二）等"
+        }
+      ]
+    },
+    "normal": {
+      "style": {
+        "font_family": "方正仿宋_GBK",
+        "font_size": "16.0000pt",
+        "font_kerning": "1.0000pt",
+        "font_weight": "normal",
+        "alignment": "left",
+        "text_indent": "36.0000pt",
+        "description": "正文：字体：方正仿宋_GBK；字号：三号；格式：首行缩进2字符"
+      },
+      "patterns": []
+    },
+    "special_format": {
+      "style": {
+        "font_family": "方正楷体_GBK",
+        "font_size": "16.0000pt",
+        "font_kerning": "1.0000pt",
+        "font_weight": "bold",
+        "alignment": "justify",
+        "text_indent": "0.0000pt",
+        "description": "特殊格式：特殊句式识别"
+      },
+      "patterns": [
+        {
+          "pattern": "^（([一二三四五六七八九十\\d]+)）([^。]+。)(.*)",
+          "name": "括号序号标题",
+          "enabled": true,
+          "description": "（一）、（二）等格式到句号"
+        },
+        {
+          "pattern": "^([一二三四五六七八九十\\d]+[是的][^。]*。)(.*)",
+          "name": "特殊句式到句号",
+          "enabled": true,
+          "description": "第一句到句号"
+        },
+        {
+          "pattern": "^([^：]*：)(.*)",
+          "name": "标题到冒号",
+          "enabled": true,
+          "description": "段落开头到冒号"
+        }
+      ]
+    }
+  },
+  "default_ui_settings": {
+    "enable_h1": true,
+    "enable_h2": true,
+    "enable_h3": true,
+    "enable_special": true
+  }
+}
