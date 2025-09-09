@@ -75,7 +75,7 @@ jobs:
           - **Windows**: [TextPolish.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/TextPolish.exe)
           
           ### 📝 更新说明
-          - 修复了英文引号转换为中文引号的问题
+          - ✨ **实现用户可配置系统**：移除旧的静态配置
 
           ### 🚀 功能特性
           - Gemini AI文本格式修复
